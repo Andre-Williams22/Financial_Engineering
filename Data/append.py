@@ -1,3 +1,4 @@
+## Appends all stocks 
 import pandas as pd
 from glob import glob
 
@@ -15,4 +16,5 @@ for f in files:
   else:
     full_df = full_df.append(df, ignore_index=True)
 
-full_df.to_csv('sp500full.csv', index=False)
+# # save to csv 
+# full_df.to_csv('sp500full.csv', index=False)
