@@ -34,8 +34,9 @@ def get_data():
   # 0 = AAPL
   # 1 = MSI
   # 2 = SBUX
-  df = pd.read_csv('../tf2.0/aapl_msi_sbux.csv')
-  return df.values
+  pass
+  # df = pd.read_csv('../tf2.0/aapl_msi_sbux.csv')
+  # return df.values
 
 def hist_data(symbols, timeframe="15Min", limit=200, start="", end="", after="", until=""):
     '''Returns the historical bar data for a group of stocks '''
@@ -399,7 +400,7 @@ if __name__ == '__main__':
   
   tickers = "AAPL,PLTR,LMND"
   
-  test_data = get_data(tickers)#data[n_train:]
+  test_data = hist_data(tickers)#data[n_train:]
 
   env = MultiStockEnv(train_data, initial_investment)
   state_size = env.state_dim
