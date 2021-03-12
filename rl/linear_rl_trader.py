@@ -26,17 +26,47 @@ stoch_signal = {}
 
 account = api.get_account()
 
-
-# Let's use AAPL (Apple), MSI (Motorola), SBUX (Starbucks)
 def get_data():
   # returns a T x 3 list of stock prices
   # each row is a different stock
   # 0 = AAPL
   # 1 = MSI
   # 2 = SBUX
-  pass
-  # df = pd.read_csv('../tf2.0/aapl_msi_sbux.csv')
-  # return df.values
+  df = pd.read_csv('../tf2.0/aapl_msi_sbux.csv')
+  return df.values
+
+def last_price(symbol, timeframe="15Min", limit=200, start="", end="", after="", until=""):
+  '''returns max amt of stock we can buy '''
+  df_data = {}
+  # Get Requests for Bar Data
+  bar_url = endpoint + "/bars/{}".format(timeframe)
+
+  params = {
+      "symbols": symbol,
+      "limit": limit,
+      "start": start,
+      "end": end,
+      "after": after,
+      "until": until
+  }
+
+
+  r = requests.get(bar_url, headers=headers, params=params)
+
+  json_dump = r.json()
+  # loop through stock data 
+  for symbol in json_dump:
+      # print("symbol = ",symbol)
+      # print(json_dump[symbol])
+      # convert json into pandas dataframe 
+      temp = pd.DataFrame(json_dump[symbol])
+      temp = temp['c']
+      
+      # append data to df data 
+      df_data[symbol] = temp
+  df = pd.DataFrame(df_data)
+  return df[symbol].iloc[-1]
+
 
 def hist_data(symbols, timeframe="15Min", limit=200, start="", end="", after="", until=""):
     '''Returns the historical bar data for a group of stocks '''
@@ -284,14 +314,22 @@ class MultiStockEnv:
       elif a == 2:
         buy_index.append(i)
 
+    print("sell index", sell_index)
     # sell any stocks we want to sell
     # then buy any stocks we want to buy
     if sell_index:
       # NOTE: to simplify the problem, when we sell, we will sell ALL shares of that stock
       for i in sell_index:
+        
+        if i == 0:
+          ticker = 'AAPL'
+        elif i == 1:
+          ticker = 'PLTR'
+        else:
+          ticker = 'LMND'
         self.cash_in_hand += self.stock_price[i] * self.stock_owned[i]
-        filled_qty = api.get_position(i).qty
-        api.submit_order(symbol=i, qty=int(filled_qty), side="sell", type="trailing_stop", time_in_force="day", trail_percent = "1.5")
+        # filled_qty = api.get_position(ticker).qty
+        api.submit_order(symbol=ticker, qty=int(max(1, self.cash_in_hand/last_price(ticker))), side="sell", type="trailing_stop", time_in_force="day", trail_percent = "1.5")
         self.stock_owned[i] = 0
     if buy_index:
       # NOTE: when buying, we will loop through each stock we want to buy,
@@ -299,16 +337,20 @@ class MultiStockEnv:
       can_buy = True
       while can_buy:
         for i in buy_index:
+          if i == 0:
+            ticker = 'AAPL'
+          elif i == 1:
+            ticker = 'PLTR'
+          else:
+            ticker = 'LMND'
           if self.cash_in_hand > self.stock_price[i]:
-            self.stock_owned[i] += 1 # buy one share
-            api.submit_order(symbol=i, qty=1, side="buy",type="market", time_in_force="ioc")
+            self.stock_owned[i] += int(max(1, self.cash_in_hand/last_price(ticker))) # num shares bought
+            filled_qty = api.get_position(ticker).qty
+            api.submit_order(symbol=ticker, qty=int(max(1, self.cash_in_hand/last_price(ticker))), side="buy",type="market", time_in_force="ioc")
+            
             self.cash_in_hand -= self.stock_price[i]
           else:
             can_buy = False
-
-
-
-
 
 class DQNAgent(object):
   def __init__(self, state_size, action_size):
@@ -325,7 +367,6 @@ class DQNAgent(object):
       return np.random.choice(self.action_size)
     act_values = self.model.predict(state)
     return np.argmax(act_values[0])  # returns action
-
 
   def train(self, state, action, reward, next_state, done):
     if done:
@@ -402,6 +443,8 @@ if __name__ == '__main__':
   
   test_data = hist_data(tickers)#data[n_train:]
 
+  print(test_data)
+  
   env = MultiStockEnv(train_data, initial_investment)
   state_size = env.state_dim
   action_size = len(env.action_space)
@@ -450,4 +493,4 @@ if __name__ == '__main__':
 
 
   # save portfolio value for each episode
-  np.save(f'{rewards_folder}/{args.mode}.npy', portfolio_value)
+  np.save(f'{rewards_folder}/{mode}.npy', portfolio_value)
